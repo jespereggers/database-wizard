@@ -20,8 +20,26 @@ def to_list(file_path: str) -> list:
     return result
 
 
-def dict_to_csv(sample: dict) -> str:
-    return ""
+def list_to_csv(sample: list) -> str:
+    if len(sample) == 0 or len(sample) == 1 and sample[0] is None:
+        return ''
+
+    result: str = ''
+
+    categories = sample[0].keys()
+
+    for i in categories:
+        result += i + ";"
+
+    result = result[:-1] + '\n'
+
+    for element in sample:
+        for key in element:
+            result += element[key] + ';'
+
+        result = result[:-1] + '\n'
+
+    return result
 
 
 def save(text: str, file_path: str):

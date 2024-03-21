@@ -64,7 +64,7 @@ def get_web_search_assist(client):
 
 def get_scrape_assist(client):
     assistant_instruction = ("You are a market analyst. Given the name of a german company, "
-                             "you research (or guess in case there is no info available) the amount of employees. "
+                             "you research the amount of employees by scraping their homepage. "
                              "Tell if you found a real number or guessed it out of the blue. "
                              "Always check the website first using the access-link tool, "
                              "and proceed to tavily-search if not successfull. "
@@ -77,7 +77,7 @@ def get_scrape_assist(client):
         tools=[{
             "type": "function",
             "function": {
-                "name": "tavily_search",
+                "name": "scrape_homepage",
                 "description": "Search for information on the entire web.",
                 "parameters": {
                     "type": "object",

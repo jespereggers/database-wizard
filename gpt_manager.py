@@ -10,6 +10,31 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 tavily_client = TavilyClient(api_key=TAVILY_API_KEY)
 
 
+def ask_scrape_gpt(page_content: str) -> str:
+    prompt: str = (
+            'Dies ist der Inhalt einer Unternehmensinfoseite:\n'
+            + page_content + '\n\n'
+            + 'Wichtig: Antworte nur mit einer Zahl oder "unknown". Füge nie irgendwas anderes hinzu'
+    )
+    return "unknown"
+
+    response = client.chat.completions.create(
+        # most advanced model
+        model="gpt-4-turbo-preview",
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                ]
+            }
+        ],
+    )
+    answer: str = response.choices[0].message.content
+
+    return answer
+
+
 def tavily_search(query):
     search_result = tavily_client.get_search_context(query, search_depth="advanced", max_tokens=8000)
     return search_result
