@@ -1,3 +1,4 @@
+# -*- coding: windows-1252 -*-
 import gpt_configs
 
 from keys import OPENAI_API_KEY, TAVILY_API_KEY
@@ -10,13 +11,16 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 tavily_client = TavilyClient(api_key=TAVILY_API_KEY)
 
 
-def ask_scrape_gpt(page_content: str) -> str:
+def ask_scrape_gpt(page_content: str) -> dict:
     prompt: str = (
-            'Dies ist der Inhalt einer Unternehmensinfoseite:\n'
+            'Ich suche die Anzahl der Mitarbeiter eines Unternehmens.\n'
+            + 'Dies ist der Inhalt der Unternehmensinfoseite:\n'
             + page_content + '\n\n'
-            + 'Wichtig: Antworte nur mit einer Zahl oder "unknown". Füge nie irgendwas anderes hinzu'
+            + "Versuche, die richtige Mitarbeiterzahl zu ermitteln, "
+            + "oder errate andernfalls eine realistische Zahl größer Null.\n"
+            + 'Wichtig: Antworte immmer in diesem Format: {"employees": int, "guessed": "ja" oder "nein"}.\n'
+            + 'Füge nie irgendwas anderes hinzu'
     )
-    return "unknown"
 
     response = client.chat.completions.create(
         # most advanced model
@@ -32,7 +36,52 @@ def ask_scrape_gpt(page_content: str) -> str:
     )
     answer: str = response.choices[0].message.content
 
-    return answer
+    try:
+        output = json.loads(answer)
+        return output
+    except json.JSONDecodeError as e:
+        print(f"JSON decoding failed in ask_scrape_gpt: {e}")
+    except Exception as e:
+        print(f"An unexpected error occurred in ask_scrape_gpt: {e}")
+
+    return {}
+
+
+def ask_search_gpt(search_results: str) -> dict:
+    prompt: str = (
+            'Ich suche die Anzahl der Mitarbeiter eines Unternehmens. '
+            + 'Wenn du mehrere Zahlen findest, wählst du den Mittelwert.\n'
+            + 'Dies sind die Inhalte, die ich dazu im Internet gefunden habe:\n'
+            + search_results + '\n\n'
+            + 'Wichtig: Antworte immmer in diesem Format: {"employees": int oder "unknown", "source": url}.\n'
+            + 'Füge nie irgendwas anderes hinzu'
+    )
+
+    response = client.chat.completions.create(
+        # most advanced model
+        model="gpt-4-turbo-preview",
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                ]
+            }
+        ],
+    )
+
+    answer: str = response.choices[0].message.content
+    output: dict = {}
+
+    try:
+        output = json.loads(answer)
+        return output
+    except json.JSONDecodeError as e:
+        print(f"JSON decoding failed in ask_search_gpt: {e}")
+    except Exception as e:
+        print(f"An unexpected error occurred in ask_search_gpt: {e}")
+
+    return output
 
 
 def tavily_search(query):

@@ -35,7 +35,7 @@ def list_to_csv(sample: list) -> str:
 
     for element in sample:
         for key in element:
-            result += element[key] + ';'
+            result += str(element[key]) + ';'
 
         result = result[:-1] + '\n'
 
