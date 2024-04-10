@@ -3,7 +3,7 @@ import csv
 
 def to_list(file_path: str) -> list:
     data = []
-    with open(file_path, 'r', encoding='latin-1') as file:
+    with open(file_path, 'r', encoding='utf-8') as file:
         csv_reader = csv.reader(file, delimiter=';')
         for row in csv_reader:
             data.append(row)
@@ -43,8 +43,9 @@ def list_to_csv(sample: list) -> str:
 
 
 def save(text: str, file_path: str):
+    print("Save file")
     try:
-        with open(file_path, 'w') as file:
+        with open(file_path, 'w', encoding='utf-8') as file:
             file.write(text)
         print(f"String saved to {file_path} successfully.")
     except Exception as e:

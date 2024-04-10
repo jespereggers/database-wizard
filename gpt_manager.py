@@ -16,8 +16,8 @@ def ask_scrape_gpt(page_content: str) -> dict:
             'Ich suche die Anzahl der Mitarbeiter eines Unternehmens.\n'
             + 'Dies ist der Inhalt der Unternehmensinfoseite:\n'
             + page_content + '\n\n'
-            + "Versuche, die richtige Mitarbeiterzahl zu ermitteln, "
-            + "oder errate andernfalls eine realistische Zahl größer Null.\n"
+            + 'Versuche, die richtige Mitarbeiterzahl zu ermitteln, '
+            + 'oder errate für "employees" andernfalls eine realistische Zahl (mindestens eins).\n'
             + 'Wichtig: Antworte immmer in diesem Format: {"employees": int, "guessed": "ja" oder "nein"}.\n'
             + 'Füge nie irgendwas anderes hinzu'
     )
