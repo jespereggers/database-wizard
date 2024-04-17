@@ -16,15 +16,14 @@ def ask_scrape_gpt(page_content: str) -> dict:
             'Ich suche die Anzahl der Mitarbeiter eines Unternehmens.\n'
             + 'Dies ist der Inhalt der Unternehmensinfoseite:\n'
             + page_content + '\n\n'
-            + 'Versuche, die richtige Mitarbeiterzahl zu ermitteln, '
-            + 'oder errate für "employees" andernfalls eine realistische Zahl (mindestens eins).\n'
+            + 'Versuche, die richtige Mitarbeiterzahl zu ermitteln.\n'
             + 'Wichtig: Antworte immmer in diesem Format: {"employees": int, "guessed": "ja" oder "nein"}.\n'
-            + 'Füge nie irgendwas anderes hinzu'
+            + 'Antworte mit {}, wenn du nichts findest. Füge nie irgendwas anderes hinzu'
     )
 
     response = client.chat.completions.create(
         # most advanced model
-        model="gpt-4-turbo-preview",
+        model="gpt-3.5-turbo-16k",
         messages=[
             {
                 "role": "user",
@@ -59,7 +58,7 @@ def ask_search_gpt(search_results: str) -> dict:
 
     response = client.chat.completions.create(
         # most advanced model
-        model="gpt-4-turbo-preview",
+        model="gpt-3.5-turbo-16k",
         messages=[
             {
                 "role": "user",

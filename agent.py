@@ -1,5 +1,5 @@
 # -*- coding: windows-1252 -*-
-
+import file_manager
 from keys import GOOGLE_API_KEY, GOOGLE_CS_ID
 from bs4 import BeautifulSoup
 import urllib.parse
@@ -13,13 +13,30 @@ INPUT_PATH = 'input/event-sheet.csv'
 OUTPUT_PATH = 'output/event-sheet.csv'
 
 
-def get_about_link(url) -> str:
+def get_about_link(url) -> list:
     search_term: str = 'team OR unternehmen OR profil OR ueber_uns site:' + url
 
     search_url = f"https://www.googleapis.com/customsearch/v1?key={GOOGLE_API_KEY}&cx={GOOGLE_CS_ID}&q={search_term}"
     response = requests.get(search_url).json()
 
+    links: list = []
+
+    if 'items' in response.keys():
+        for i in range(0, len(response['items'])):
+            links.append(response['items'][i]['link'])
+
+    return links
+
+
+def get_snippet(company_name) -> str:
+    search_term: str = 'Mitarbeiterzahl ' + company_name
+
+    search_url = f"https://www.googleapis.com/customsearch/v1?key={GOOGLE_API_KEY}&cx={GOOGLE_CS_ID}&q={search_term}"
+    response = requests.get(search_url).json()
+
     first_result_link: str = "unknown"
+
+    print()
 
     if 'items' in response.keys():
         if len(response['items']) > 0:
@@ -75,67 +92,68 @@ def is_valid_sample(sample: dict, sample_filter: dict) -> bool:
 def gpt_response_is_valid(response: dict) -> bool:
     if response == {}:
         return False
-    if "employees" in response.keys() and toolbox.str_represents_int(response["employees"]):
+    if ("employees" in response.keys() and response["employees"] != "{}" and not response["employees"] is None
+            and toolbox.str_represents_int(response["employees"])):
         return True
     return False
 
 
-def mod_sample(sample: list, sample_filter: dict, add: list) -> list:
-    result: list = []
-    print("Start process with ", sample)
-    sample_categories: list = sample[0].keys()
+def modify(sample: dict, add: list):
+    extension: dict = {}
 
-    for element in sample:
-        element["Name"] = element["Name"].replace("\x9f", "ß").replace("\x96", "Ö").replace("\x84", "Ä")
-        extension: dict = {}
-        success: bool = False
+    for i in add:
+        extension[i] = "unknown"
+    extension["KI-Rank"] = "Tavily"
 
-        for i in add:
-            extension[i] = "unknown"
+    # stage 1: search on homepage
+    if "Domain_p" in sample.keys() and sample["Domain_p"] != "":
+        print("Enter stage 1 for " + sample["Name"])
 
-        # apply filters
-        if is_valid_sample(element, sample_filter) and element['Fahrzeit ok?'] == 'ja':
-            # stage 1: scraping
-            print("Enter stage 1 / 3 for ", element["Name"])
+        # get link to about-site of a company
+        about_links: list = get_about_link(
+            sample["Domain_p"].replace("https://", "").replace("http://", "").replace("www.", "")
+        )
+        about_links = about_links[:2]
 
-            if "Website" in sample_categories:
-                about_link: str = get_about_link(
-                    element["Website"].replace("https://", "").replace("http://", "").replace("www.", "")
-                )
-                print("Got about-link: " + about_link)
+        if len(about_links) > 0:
+            print("Got about-links: " + about_links[0] + "...")
 
-                if about_link != "unknown":
-                    link_content: str = get_link_content(about_link).encode('cp1252', errors='replace').decode('cp1252')
-                    gpt_response: dict = gpt_manager.ask_scrape_gpt(link_content)
-                    print("Got response: ", gpt_response)
+        for link_index in range(0, len(about_links)):
+            link = about_links[link_index]
 
-                    if gpt_response_is_valid(gpt_response):
-                        extension["employees"] = int(gpt_response["employees"])
-                        extension["source"] = urllib.parse.unquote(about_link)
+            # gpt searches on about-site
+            link_content: str = get_link_content(link).encode('cp1252', errors='replace').decode('cp1252')
+            gpt_response: dict = gpt_manager.ask_scrape_gpt(link_content[:12000])
+            print("Got response: ", gpt_response)
 
-                        if gpt_response["guessed"] == "nein":
-                            extension["stage"] = "scraping"
-                            success = True
-                        else:
-                            extension["stage"] = "guessing"
+            if (gpt_response_is_valid(gpt_response) and gpt_response["employees"] != "0"
+                    and gpt_response["employees"] != 0):
+                print("Success")
+                extension["KI-Mitarbeiterzahl"] = int(gpt_response["employees"])
+                extension["KI-Quelle"] = urllib.parse.unquote(link)
 
-            if not success:
-                print("Enter stage 2 for " + element["Name"])
-                # stage 2: searching
-                search_prompt: str = element["Name"] + " Mitarbeiterzahl"
-                search_results: str = toolbox.get_tavily_search(search_prompt)
-                gpt_output: dict = gpt_manager.ask_search_gpt(search_results)
-                print("Got response: ", gpt_output)
+                extension["KI-Rank"] = str(link_index)
 
-                if gpt_response_is_valid(gpt_output) and gpt_output["employees"] != "unknown":
-                    extension["employees"] = gpt_output["employees"]
-                    extension["source"] = urllib.parse.unquote(gpt_output["source"])
-                    extension["stage"] = "searching"
+                for key in extension.keys():
+                    sample[key] = extension[key]
+                return sample
 
-        element.update(extension)
-        result.append(element)
+    # stage 2: search the entire web
+    print("Enter stage 2 for " + sample["Name"])
 
-    return result
+    search_prompt: str = sample["Name"] + " Mitarbeiterzahl"
+    search_results: str = toolbox.get_tavily_search(search_prompt)
+    gpt_output: dict = gpt_manager.ask_search_gpt(search_results)
+    print("Got response: ", gpt_output)
+
+    if gpt_response_is_valid(gpt_output) and gpt_output["employees"] != "unknown":
+        extension["KI-Mitarbeiterzahl"] = gpt_output["employees"]
+        extension["KI-Quelle"] = urllib.parse.unquote(gpt_output["source"])
+
+    for key in extension.keys():
+        sample[key] = extension[key]
+
+    return sample
 
 
 def get_files_in_folder(folder_path: str):
@@ -149,40 +167,68 @@ def get_files_in_folder(folder_path: str):
         return f"Fehler beim Auflisten der Dateien: {str(e)}"
 
 
-data: list = csv_manager.to_list(INPUT_PATH)
-export: list = []
+def bind_exports(folder_path: str, destination_path: str):
+    if not os.path.isdir(folder_path):
+        os.makedirs(folder_path)
 
-
-def bind_exports(folder_path: str):
     files: list = os.listdir(folder_path)
-    files.sort(key=lambda x: int(x.split('.')[0]))
 
     exports: list = []
 
     for file_path in files:
-        path: str = "output/event/" + str(file_path)
+        path_str: str = "output/northdata/" + str(file_path)
 
-        if os.path.exists(path):
-            fraction: dict = csv_manager.to_list(path)[0]
-            if fraction["stage"] == "searching" or fraction["stage"] == "scraping":
-                export.append(fraction)
-                # new_fraction: list = mod_sample([data[index]], {}, ["employees", "source", "stage"])
+        if os.path.exists(path_str):
+            fraction: dict = csv_manager.to_list(path_str)[0]
+            exports.append(fraction)
 
-                # print("Save ", new_fraction)
-            # csv_result: str = csv_manager.list_to_csv(new_fraction)
-            # csv_manager.save(csv_result, "output/event/" + str(index) + ".csv")
-
-        if not os.path.exists("output/event/" + str(file_path) + ".csv"):
-            fraction: list = mod_sample([data[file_path]], {}, ["employees", "source", "stage"])
-
-            print("Save ", fraction)
-            csv_result: str = csv_manager.list_to_csv(fraction)
-            csv_manager.save(csv_result, "output/event/" + str(file_path) + ".csv")
-
-    csv_export: str = csv_manager.list_to_csv(export).replace("\x9f", "ß").replace("\x96", "Ö").replace("\x84",
-                                                                                                        "Ä").replace(
-        "\x9c", "Ü")
-    csv_manager.save(csv_export, "output/event-sheet.csv")
+    export_as_csv_string: str = csv_manager.list_to_csv(exports)
+    csv_manager.save(export_as_csv_string, destination_path)
 
 
-bind_exports("output/event")
+def get_blacklist(file_path: str) -> list:
+    if os.path.exists(file_path):
+        blacklist: list = file_manager.load_list(file_path)
+        return blacklist
+    else:
+        file_manager.save_list(file_path, [])
+        return []
+
+
+data: list = csv_manager.to_list("input/northdata.CSV")
+found_result: bool = True
+
+ignore_list: list = get_blacklist("output/northdata_ignore.txt")
+
+for element in data:
+    path: str = "output/northdata/" + element["Register-ID"] + ".csv"
+    found_result = True
+
+    if element["Register-ID"] in ignore_list:
+        print("Skip " + element["Register-ID"])
+
+    if not os.path.exists(path) and not element["Register-ID"] in ignore_list:
+        print("-------")
+
+        print(element)
+
+        if element["Mitarbeiterzahl"] == "":
+            element = modify(element, ["KI-Mitarbeiterzahl", "KI-Quelle", "KI-Rank"])
+
+            if element["KI-Mitarbeiterzahl"] == "unknown" or element["KI-Mitarbeiterzahl"] == "":
+                found_result = False
+        else:
+            element["KI-Mitarbeiterzahl"] = element["Mitarbeiterzahl"]
+            element["KI-Quelle"] = "Übernommen"
+
+        if found_result:
+            element_as_csv: str = csv_manager.list_to_csv([element])
+            csv_manager.save(element_as_csv, path)
+        else:
+            ignore_list.append(element["Register-ID"])
+
+        print(element)
+        file_manager.save_list("output/northdata_ignore.txt", ignore_list)
+        print("-------")
+
+bind_exports("output/northdata", "output/northdata.csv")
