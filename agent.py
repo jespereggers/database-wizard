@@ -195,40 +195,42 @@ def get_blacklist(file_path: str) -> list:
         return []
 
 
-data: list = csv_manager.to_list("input/northdata.CSV")
-found_result: bool = True
+def run_agent():
+    data: list = csv_manager.to_list("input/northdata.CSV")
 
-ignore_list: list = get_blacklist("output/northdata_ignore.txt")
+    ignore_list: list = get_blacklist("output/northdata_ignore.txt")
 
-for element in data:
-    path: str = "output/northdata/" + element["Register-ID"] + ".csv"
-    found_result = True
+    for element in data:
+        path: str = "output/northdata/" + element["Register-ID"] + ".csv"
+        found_result: bool = True
 
-    if element["Register-ID"] in ignore_list:
-        print("Skip " + element["Register-ID"])
+        if element["Register-ID"] in ignore_list:
+            print("Skip " + element["Register-ID"])
 
-    if not os.path.exists(path) and not element["Register-ID"] in ignore_list:
-        print("-------")
+        if not os.path.exists(path) and not element["Register-ID"] in ignore_list:
+            print("-------")
 
-        print(element)
+            print(element)
 
-        if element["Mitarbeiterzahl"] == "":
-            element = modify(element, ["KI-Mitarbeiterzahl", "KI-Quelle", "KI-Rank"])
+            if element["Mitarbeiterzahl"] == "":
+                element = modify(element, ["KI-Mitarbeiterzahl", "KI-Quelle", "KI-Rank"])
 
-            if element["KI-Mitarbeiterzahl"] == "unknown" or element["KI-Mitarbeiterzahl"] == "":
-                found_result = False
-        else:
-            element["KI-Mitarbeiterzahl"] = element["Mitarbeiterzahl"]
-            element["KI-Quelle"] = "Übernommen"
+                if element["KI-Mitarbeiterzahl"] == "unknown" or element["KI-Mitarbeiterzahl"] == "":
+                    found_result = False
+            else:
+                element["KI-Mitarbeiterzahl"] = element["Mitarbeiterzahl"]
+                element["KI-Quelle"] = "Übernommen"
 
-        if found_result:
-            element_as_csv: str = csv_manager.list_to_csv([element])
-            csv_manager.save(element_as_csv, path)
-        else:
-            ignore_list.append(element["Register-ID"])
+            if found_result:
+                element_as_csv: str = csv_manager.list_to_csv([element])
+                csv_manager.save(element_as_csv, path)
+            else:
+                ignore_list.append(element["Register-ID"])
 
-        print(element)
-        file_manager.save_list("output/northdata_ignore.txt", ignore_list)
-        print("-------")
+            print(element)
+            file_manager.save_list("output/northdata_ignore.txt", ignore_list)
+            print("-------")
 
+
+run_agent()
 bind_exports("output/northdata", "output/northdata.csv")
