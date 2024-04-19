@@ -43,10 +43,8 @@ def list_to_csv(sample: list) -> str:
 
 
 def save(text: str, file_path: str):
-    print("Save file")
     try:
         with open(file_path, 'w', encoding='utf-8') as file:
             file.write(text)
-        print(f"String saved to {file_path} successfully.")
     except Exception as e:
         print(f"Error occurred while saving to {file_path}: {e}")

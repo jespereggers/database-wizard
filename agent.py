@@ -36,8 +36,6 @@ def get_snippet(company_name) -> str:
 
     first_result_link: str = "unknown"
 
-    print()
-
     if 'items' in response.keys():
         if len(response['items']) > 0:
             first_result_link = response['items'][0]['link']
@@ -103,20 +101,17 @@ def modify(sample: dict, add: list):
 
     for i in add:
         extension[i] = "unknown"
-    extension["KI-Rank"] = "Tavily"
 
     # stage 1: search on homepage
     if "Domain_p" in sample.keys() and sample["Domain_p"] != "":
-        print("Enter stage 1 for " + sample["Name"])
 
         # get link to about-site of a company
         about_links: list = get_about_link(
             sample["Domain_p"].replace("https://", "").replace("http://", "").replace("www.", "")
         )
-        about_links = about_links[:2]
-
-        if len(about_links) > 0:
-            print("Got about-links: " + about_links[0] + "...")
+        about_links = about_links[:3]
+        print(sample["Domain_p"].replace("https://", "").replace("http://", "").replace("www.", ""))
+        print(about_links)
 
         for link_index in range(0, len(about_links)):
             link = about_links[link_index]
@@ -124,31 +119,19 @@ def modify(sample: dict, add: list):
             # gpt searches on about-site
             link_content: str = get_link_content(link).encode('cp1252', errors='replace').decode('cp1252')
             gpt_response: dict = gpt_manager.ask_scrape_gpt(link_content[:12000])
-            print("Got response: ", gpt_response)
 
             if (gpt_response_is_valid(gpt_response) and gpt_response["employees"] != "0"
                     and gpt_response["employees"] != 0):
-                print("Success")
                 extension["KI-Mitarbeiterzahl"] = int(gpt_response["employees"])
                 extension["KI-Quelle"] = urllib.parse.unquote(link)
+
+                print("-> " + sample["Name"] + " has " + str(extension["KI-Mitarbeiterzahl"]) + " employees")
 
                 extension["KI-Rank"] = str(link_index)
 
                 for key in extension.keys():
                     sample[key] = extension[key]
                 return sample
-
-    # stage 2: search the entire web
-    print("Enter stage 2 for " + sample["Name"])
-
-    search_prompt: str = sample["Name"] + " Mitarbeiterzahl"
-    search_results: str = toolbox.get_tavily_search(search_prompt)
-    gpt_output: dict = gpt_manager.ask_search_gpt(search_results)
-    print("Got response: ", gpt_output)
-
-    if gpt_response_is_valid(gpt_output) and gpt_output["employees"] != "unknown":
-        extension["KI-Mitarbeiterzahl"] = gpt_output["employees"]
-        extension["KI-Quelle"] = urllib.parse.unquote(gpt_output["source"])
 
     for key in extension.keys():
         sample[key] = extension[key]
@@ -198,9 +181,12 @@ def get_blacklist(file_path: str) -> list:
 def run_agent():
     data: list = csv_manager.to_list("input/northdata.CSV")
 
-    ignore_list: list = get_blacklist("output/northdata_ignore.txt")
+    # get_blacklist("output/northdata_ignore.txt")
+    ignore_list: list = []
 
     for element in data:
+
+        # get employee-count
         path: str = "output/northdata/" + element["Register-ID"] + ".csv"
         found_result: bool = True
 
@@ -208,9 +194,7 @@ def run_agent():
             print("Skip " + element["Register-ID"])
 
         if not os.path.exists(path) and not element["Register-ID"] in ignore_list:
-            print("-------")
-
-            print(element)
+            print("Run " + element["Name"])
 
             if element["Mitarbeiterzahl"] == "":
                 element = modify(element, ["KI-Mitarbeiterzahl", "KI-Quelle", "KI-Rank"])
@@ -227,8 +211,10 @@ def run_agent():
             else:
                 ignore_list.append(element["Register-ID"])
 
-            print(element)
             file_manager.save_list("output/northdata_ignore.txt", ignore_list)
+
+            # get service offerings
+
             print("-------")
 
 
