@@ -179,13 +179,14 @@ def get_blacklist(file_path: str) -> list:
 
 
 def run_agent():
+    # Tutorial Note 1
+    path: str = input("Enter file-path to CSV-path (note that it needs to be seperated by semicolons).")
+
     data: list = csv_manager.to_list("input/northdata.CSV")
 
-    # get_blacklist("output/northdata_ignore.txt")
-    ignore_list: list = []
+    ignore_list: list = get_blacklist("output/northdata_ignore.txt")
 
     for element in data:
-
         # get employee-count
         path: str = "output/northdata/" + element["Register-ID"] + ".csv"
         found_result: bool = True
