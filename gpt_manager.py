@@ -10,40 +10,56 @@ import time
 client = OpenAI(api_key=OPENAI_API_KEY)
 tavily_client = TavilyClient(api_key=TAVILY_API_KEY)
 
+import json
+import requests
+
 
 def ask_scrape_gpt(page_content: str) -> dict:
-    prompt: str = (
-            'Ich suche die Anzahl der Mitarbeiter eines Unternehmens.\n'
+    prompt = (
+            'Suche die Anzahl der Mitarbeiter eines Unternehmens.\n'
             + 'Dies ist der Inhalt der Unternehmensinfoseite:\n'
             + page_content + '\n\n'
-            + 'Versuche, die richtige Mitarbeiterzahl zu ermitteln.\n'
-            + 'Wichtig: Antworte immmer in diesem Format: {"employees": int, "guessed": "ja" oder "nein"}.\n'
-            + 'Antworte mit {}, wenn du nichts findest. Füge nie irgendwas anderes hinzu'
+            + 'Wichtig: Antworte immer in diesem Format: {"employees": "int", "guessed": "ja" oder "nein"}.\n'
+            + 'Antworte mit {"employees": "unknown", "guessed": "no"} wenn du nichts findest.\n'
     )
 
-    response = client.chat.completions.create(
-        # most advanced model
-        model="gpt-3.5-turbo-0125",
-        messages=[
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": prompt},
-                ]
-            }
-        ],
-    )
-    answer: str = response.choices[0].message.content
+    # Configuration for the API call
+    headers = {
+        "Authorization": "Bearer " + OPENAI_API_KEY,
+        "Content-Type": "application/json"
+    }
+    data = {
+        "model": "gpt-3.5-turbo-0125",
+        "messages": [{
+            "role": "user",
+            "content": prompt
+        }]
+    }
 
+    # Sending the request to the OpenAI API
+    response = requests.post('https://api.openai.com/v1/chat/completions', headers=headers, json=data)
+    response_data = response.json()
+
+    # Extracting the text from the response
+    answer = "empty"
     try:
+        answer = response_data['choices'][0]['message']['content'].strip()
         output = json.loads(answer)
-        return output
+        if "employees" in output and "guessed" in output:
+            return output
+        else:
+            print("Invalid format returned.")
     except json.JSONDecodeError as e:
         print(f"JSON decoding failed in ask_scrape_gpt: {e}")
+        print(answer)
+    except KeyError as e:
+        print(f"Key error: {e}")
+        print(answer)
     except Exception as e:
         print(f"An unexpected error occurred in ask_scrape_gpt: {e}")
+        print(answer)
 
-    return {}
+    return {"employees": "unknown", "guessed": "no"}
 
 
 def ask_search_gpt(search_results: str) -> dict:

@@ -4,9 +4,9 @@ from keys import GOOGLE_API_KEY, GOOGLE_CS_ID
 from bs4 import BeautifulSoup
 import urllib.parse
 import toolbox
+import requests
 import csv_manager
 import gpt_manager
-import requests
 import os
 
 INPUT_PATH = 'input/event-sheet.csv'
@@ -28,19 +28,17 @@ def get_about_link(url) -> list:
     return links
 
 
-def get_snippet(company_name) -> str:
-    search_term: str = 'Mitarbeiterzahl ' + company_name
-
-    search_url = f"https://www.googleapis.com/customsearch/v1?key={GOOGLE_API_KEY}&cx={GOOGLE_CS_ID}&q={search_term}"
+def get_snippets(prompt: str) -> list:
+    search_url = f"https://www.googleapis.com/customsearch/v1?key={GOOGLE_API_KEY}&cx={GOOGLE_CS_ID}&q={prompt}"
     response = requests.get(search_url).json()
 
-    first_result_link: str = "unknown"
+    first_three_links = []
 
-    if 'items' in response.keys():
-        if len(response['items']) > 0:
-            first_result_link = response['items'][0]['link']
+    if 'items' in response and len(response['items']) > 0:
+        for item in response['items'][:3]:
+            first_three_links.append(item['snippet'])
 
-    return first_result_link
+    return first_three_links
 
 
 def get_link_content(url: str) -> str:
@@ -211,7 +209,7 @@ def run_agent(project_name: str):
 
 
 # tutorial note 1
-project_name_input: str = input("Project Name: ")
+project_name_input: str = "sample-051724"  # input("Project Name: ")
 
 run_agent(project_name_input)
 bind_exports("output/" + project_name_input, "output/" + project_name_input + ".csv")
