@@ -1,9 +1,13 @@
+import os
 import csv
+import chardet
 
 
 def to_list(file_path: str) -> list:
+    encoding: str = detect_encoding(file_path)
+
     data = []
-    with open(file_path, 'r') as file:
+    with open(file_path, 'r', encoding=encoding) as file:
         csv_reader = csv.reader(file, delimiter=';')
         for row in csv_reader:
             data.append(row)
@@ -15,7 +19,7 @@ def to_list(file_path: str) -> list:
         result.append({})
 
         for key in range(0, len(keys)):
-            result[row-1][keys[key]] = data[row][key]
+            result[row - 1][keys[key]] = data[row][key]
 
     return result
 
@@ -43,8 +47,16 @@ def list_to_csv(sample: list) -> str:
 
 
 def save(text: str, file_path: str):
+    if not os.path.exists(file_path):
+        open(file_path, 'w').close()
+
     try:
         with open(file_path, 'w', encoding='utf-8') as file:
             file.write(text)
     except Exception as e:
-        print(f"Error occurred while saving to {file_path}: {e}")
+        print(f"Error occured while saving to {file_path}: {e}")
+
+
+def detect_encoding(file_path):
+    with open(file_path, 'rb') as file:
+        return chardet.detect(file.read())['encoding']

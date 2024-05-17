@@ -1,4 +1,4 @@
-# -*- coding: windows-1252 -*-
+# -*- coding: cp1250 -*-
 import file_manager
 from keys import GOOGLE_API_KEY, GOOGLE_CS_ID
 from bs4 import BeautifulSoup
@@ -14,7 +14,7 @@ OUTPUT_PATH = 'output/event-sheet.csv'
 
 
 def get_about_link(url) -> list:
-    search_term: str = 'team OR unternehmen OR profil OR ueber_uns site:' + url
+    search_term: str = 'mitarbeiter OR team OR unternehmen OR profil OR firma OR ueber_uns site:' + url
 
     search_url = f"https://www.googleapis.com/customsearch/v1?key={GOOGLE_API_KEY}&cx={GOOGLE_CS_ID}&q={search_term}"
     response = requests.get(search_url).json()
@@ -104,13 +104,11 @@ def modify(sample: dict, add: list):
 
     # stage 1: search on homepage
     if "Domain_p" in sample.keys() and sample["Domain_p"] != "":
-
         # get link to about-site of a company
         about_links: list = get_about_link(
             sample["Domain_p"].replace("https://", "").replace("http://", "").replace("www.", "")
         )
         about_links = about_links[:3]
-        print(sample["Domain_p"].replace("https://", "").replace("http://", "").replace("www.", ""))
         print(about_links)
 
         for link_index in range(0, len(about_links)):
@@ -122,12 +120,10 @@ def modify(sample: dict, add: list):
 
             if (gpt_response_is_valid(gpt_response) and gpt_response["employees"] != "0"
                     and gpt_response["employees"] != 0):
-                extension["KI-Mitarbeiterzahl"] = int(gpt_response["employees"])
-                extension["KI-Quelle"] = urllib.parse.unquote(link)
+                extension["Mitarbeiterzahl (Auto)"] = int(gpt_response["employees"])
+                extension["Quelle (Auto)"] = urllib.parse.unquote(link)
 
-                print("-> " + sample["Name"] + " has " + str(extension["KI-Mitarbeiterzahl"]) + " employees")
-
-                extension["KI-Rank"] = str(link_index)
+                print(sample["Name"] + ": " + str(extension["Mitarbeiterzahl (Auto)"]) + " employees")
 
                 for key in extension.keys():
                     sample[key] = extension[key]
@@ -159,7 +155,7 @@ def bind_exports(folder_path: str, destination_path: str):
     exports: list = []
 
     for file_path in files:
-        path_str: str = "output/northdata/" + str(file_path)
+        path_str: str = folder_path + "/" + str(file_path)
 
         if os.path.exists(path_str):
             fraction: dict = csv_manager.to_list(path_str)[0]
@@ -169,7 +165,7 @@ def bind_exports(folder_path: str, destination_path: str):
     csv_manager.save(export_as_csv_string, destination_path)
 
 
-def get_blacklist(file_path: str) -> list:
+def get_ignore_list(file_path: str) -> list:
     if os.path.exists(file_path):
         blacklist: list = file_manager.load_list(file_path)
         return blacklist
@@ -178,33 +174,30 @@ def get_blacklist(file_path: str) -> list:
         return []
 
 
-def run_agent():
-    # Tutorial Note 1
-    path: str = input("Enter file-path to CSV-path (note that it needs to be seperated by semicolons).")
+def run_agent(project_name: str):
+    data: list = csv_manager.to_list("input/" + project_name + ".csv")
 
-    data: list = csv_manager.to_list("input/northdata.CSV")
-
-    ignore_list: list = get_blacklist("output/northdata_ignore.txt")
+    ignore_list: list = get_ignore_list("output/" + project_name + "_ignore.txt")
 
     for element in data:
         # get employee-count
-        path: str = "output/northdata/" + element["Register-ID"] + ".csv"
+        path: str = "output/" + project_name + "/" + element["Register-ID"] + ".csv"
         found_result: bool = True
 
         if element["Register-ID"] in ignore_list:
             print("Skip " + element["Register-ID"])
 
         if not os.path.exists(path) and not element["Register-ID"] in ignore_list:
-            print("Run " + element["Name"])
+            print(element["Name"])
 
             if element["Mitarbeiterzahl"] == "":
-                element = modify(element, ["KI-Mitarbeiterzahl", "KI-Quelle", "KI-Rank"])
+                element = modify(element, ["Mitarbeiterzahl (Auto)", "Quelle (Auto)"])
 
-                if element["KI-Mitarbeiterzahl"] == "unknown" or element["KI-Mitarbeiterzahl"] == "":
+                if element["Mitarbeiterzahl (Auto)"] == "unknown" or element["Mitarbeiterzahl (Auto)"] == "":
                     found_result = False
             else:
-                element["KI-Mitarbeiterzahl"] = element["Mitarbeiterzahl"]
-                element["KI-Quelle"] = "Übernommen"
+                element["Mitarbeiterzahl (Auto)"] = element["Mitarbeiterzahl"]
+                element["Quelle (Auto)"] = "Transfer"
 
             if found_result:
                 element_as_csv: str = csv_manager.list_to_csv([element])
@@ -212,12 +205,13 @@ def run_agent():
             else:
                 ignore_list.append(element["Register-ID"])
 
-            file_manager.save_list("output/northdata_ignore.txt", ignore_list)
-
-            # get service offerings
+            file_manager.save_list("output/" + project_name + "_ignore.txt", ignore_list)
 
             print("-------")
 
 
-run_agent()
-bind_exports("output/northdata", "output/northdata.csv")
+# tutorial note 1
+project_name_input: str = input("Project Name: ")
+
+run_agent(project_name_input)
+bind_exports("output/" + project_name_input, "output/" + project_name_input + ".csv")

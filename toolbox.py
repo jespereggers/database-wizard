@@ -10,7 +10,7 @@ def get_tavily_search(query: str) -> str:
 
 
 def str_represents_int(text) -> bool:
-    if isinstance(text, dict):
+    if isinstance(text, (dict, list)):
         return False
 
     try:

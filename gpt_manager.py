@@ -23,7 +23,7 @@ def ask_scrape_gpt(page_content: str) -> dict:
 
     response = client.chat.completions.create(
         # most advanced model
-        model="gpt-3.5-turbo-16k",
+        model="gpt-3.5-turbo-0125",
         messages=[
             {
                 "role": "user",
@@ -166,3 +166,5 @@ def ask_assist(assistant, thread, message: str) -> str:
     client.beta.threads.delete(thread.id)
 
     return response
+
+
